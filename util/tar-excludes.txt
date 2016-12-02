@@ -1,5 +1,6 @@
 ldms/ldms_utils
 util/release_tarball*
+util/sample_init_scripts/genders
 scratch
 ldms_release
 sedcutils

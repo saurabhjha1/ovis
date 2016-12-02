@@ -12,7 +12,7 @@ fi
 REPO_DIR=`pwd`
 OUTPUT_DIR=`pwd`/Release
 
-BRANCH_NAME=master
+BRANCH_NAME=cray_dec_1
 
 # Will get this from git in the future
 VERSION=3.3.2

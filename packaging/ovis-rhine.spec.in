@@ -29,7 +29,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Source: %{name}-%{version}.tar.gz
 Requires: rpm >= 4.8.0 libevent python-base python-devel libyaml-0-2 libyaml-devel
 # fixme libevent-devel must be in buildrequires for production libyaml-devel
-BuildRequires: openssl-devel gcc  libevent python-base python-devel gettext-tools libyaml-0-2 libyaml-devel libevent-devel
+BuildRequires: openssl-devel gcc  libevent python-base python-devel gettext-tools libyaml-0-2 libyaml-devel libevent-devel swig
 Url: http://ovis.ca.sandia.gov/
 
 Prefix: /usr
