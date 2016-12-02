@@ -176,12 +176,12 @@ This is a collection of sos utilities.
 
 %files sos
 %defattr(-,root,root)
-%{_bindir}/sos_*
-%{_libdir}/libkey*
-%{_libdir}/libidx_BXTREE.*
-%{_sbindir}/ldmsd_sos_init
-%{_libdir}/libsos*
-%{_prefix}/lib/python2.7/site-packages/sosdb
+@ENABLE_SOS_TRUE@%{_bindir}/sos_*
+@ENABLE_SOS_TRUE@%{_libdir}/libkey*
+@ENABLE_SOS_TRUE@%{_libdir}/libidx_BXTREE.*
+@ENABLE_SOS_TRUE@%{_sbindir}/ldmsd_sos_init
+@ENABLE_SOS_TRUE@%{_libdir}/libsos*
+@ENABLE_SOS_TRUE@%{_prefix}/lib/python2.7/site-packages/sosdb
 #end test
 
 
