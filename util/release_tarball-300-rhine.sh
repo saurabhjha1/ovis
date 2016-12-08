@@ -28,9 +28,13 @@ mkdir -p $OUTPUT_DIR
 # cd to local git clone
 cd $REPO_DIR
 
+curbranch=`git rev-parse --abbrev-ref --short HEAD`
 # Checkout $BRANCH_NAME
-if ! test "$BRANCH_NAME" = "master"; then
-	git checkout origin/$BRANCH_NAME -b $BRANCH_NAME
+if ! test "x$BRANCH_NAME" = "x$curbranch"; then
+	if ! git checkout origin/$BRANCH_NAME -b $BRANCH_NAME ; then
+		echo "could not checkout $BRANCH_NAME requested"
+		exit 1
+	fi
 fi
 git submodule init sos
 git submodule init gpcd-support
@@ -111,3 +115,4 @@ mv -f ovis-${VERSION} $TARGET $SOSTARGET old
 sleep 0.1
 
 ls -l
+exit 0

@@ -27,6 +27,11 @@ mkdir -p $OUTPUT_DIR
 # cd to local git clone
 cd $REPO_DIR
 
+if ! ./util/release_tarball-300-rhine-nosos.sh; then
+	echo "util/release_tarball-300-rhine-nosos.sh failed"
+	exit 1
+fi
+
 # Checkout $BRANCH_NAME
 if ! test "$BRANCH_NAME" = "master"; then
 	git checkout origin/$BRANCH_NAME $BRANCH_NAME
