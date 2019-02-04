@@ -95,6 +95,7 @@ At the OVIS top directory,
 	make install
 ```
 Note that the option "--enable-swig" is required to be able to attach to a ldmsd using ldmsd_controller
+
 To build _sos_ and _baler_, `--enable-sos` and `--enable-baler`, respectively,
 must be given at the configure line. Note that _baler_ has dependency on _sos_.
 
