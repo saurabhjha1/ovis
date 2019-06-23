@@ -1,54 +1,12 @@
-/* -*- c-basic-offset: 8 -*-
- * Copyright (c) 2011-2018 National Technology & Engineering Solutions
- * of Sandia, LLC (NTESS). Under the terms of Contract DE-NA0003525 with
- * NTESS, the U.S. Government retains certain rights in this software.
- * Copyright (c) 2011-2018 Open Grid Computing, Inc. All rights reserved.
- *
- * This software is available to you under a choice of one of two
- * licenses.  You may choose to be licensed under the terms of the GNU
- * General Public License (GPL) Version 2, available from the file
- * COPYING in the main directory of this source tree, or the BSD-type
- * license below:
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *      Redistributions of source code must retain the above copyright
- *      notice, this list of conditions and the following disclaimer.
- *
- *      Redistributions in binary form must reproduce the above
- *      copyright notice, this list of conditions and the following
- *      disclaimer in the documentation and/or other materials provided
- *      with the distribution.
- *
- *      Neither the name of Sandia nor the names of any contributors may
- *      be used to endorse or promote products derived from this software
- *      without specific prior written permission.
- *
- *      Neither the name of Open Grid Computing nor the names of any
- *      contributors may be used to endorse or promote products derived
- *      from this software without specific prior written permission.
- *
- *      Modified source versions must be plainly marked as such, and
- *      must not be misrepresented as being the original software.
- *
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+/**
+
+Developer : Saurabh Jha <saurabh.jha.2010@gmail.com>
+
+**/
+
 /**
  * \file meminfo.c
- * \brief /proc/meminfo data provider
+ * \brief It will measure the ping latency between the hosts in a cluster.
  */
 #define _GNU_SOURCE
 #include <inttypes.h>
@@ -65,9 +23,7 @@
 #include "ldmsd.h"
 #include "sampler_base.h"
 
-#define PROC_FILE "/proc/meminfo"
 
-static char *procfile = PROC_FILE;
 static ldms_set_t set = NULL;
 static FILE *mf = 0;
 static ldmsd_msg_log_f msglog;
@@ -75,22 +31,31 @@ static ldmsd_msg_log_f msglog;
 static int metric_offset;
 static base_data_t base;
 
+static float get_ping_latency(char* host){
+
+  FILE *fp;
+  char path[1035];
+  float latency = -2;
+  int rc;
+  /* Open the command for reading. */
+  fp = popen("/bin/ping -qc3 -w 10 -s $((1024*10)) localhost 2>&1 | awk -F'/' 'END{ print (/^rtt/?  $5:-1) }'", "r");
+  if (fp == NULL) {
+	return latency;
+  }
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(path, sizeof(path)-1, fp) != NULL) {
+    rc = sscanf(path, "%f", &latency);
+  }
+
+  /* close */
+  pclose(fp);
+  return latency;
+}
 static int create_metric_set(base_data_t base)
 {
 	ldms_schema_t schema;
 	int rc, i;
-	uint64_t metric_value;
-	union ldms_value v;
-	char *s;
-	char lbuf[256];
-	char metric_name[128];
-
-	mf = fopen(procfile, "r");
-	if (!mf) {
-		msglog(LDMSD_LERROR, "Could not open the " SAMP " file "
-				"'%s'...exiting sampler\n", procfile);
-		return ENOENT;
-	}
 
 	schema = base_schema_new(base);
 	if (!schema) {
@@ -98,51 +63,28 @@ static int create_metric_set(base_data_t base)
 		       "%s: The schema '%s' could not be created, errno=%d.\n",
 		       __FILE__, base->schema_name, errno);
 		rc = errno;
-		goto err;
+		return rc;
 	}
 
-	/* Location of first metric from proc/meminfo file */
+	/* Location of first metric from netping file */
 	metric_offset = ldms_schema_metric_count_get(schema);
 
 	/*
 	 * Process the file to define all the metrics.
 	 */
-	fseek(mf, 0, SEEK_SET);
-	do {
-		s = fgets(lbuf, sizeof(lbuf), mf);
-		if (!s)
-			break;
-
-		rc = sscanf(lbuf, "%s %" PRIu64,
-			    metric_name, &metric_value);
-		if (rc < 2)
-			break;
-
-		/* Strip the colon from metric name if present */
-		i = strlen(metric_name);
-		if (i && metric_name[i-1] == ':')
-			metric_name[i-1] = '\0';
-
-		rc = ldms_schema_metric_add(schema, metric_name, LDMS_V_U64);
+       	rc = ldms_schema_metric_add(schema, "ping-localhost", LDMS_V_F32);
 		if (rc < 0) {
-			rc = ENOMEM;
-			goto err;
+			return rc;
 		}
-	} while (s);
 
 	set = base_set_new(base);
 	if (!set) {
 		rc = errno;
-		goto err;
+		return rc;
 	}
 
 	return 0;
 
- err:
-	if (mf)
-		fclose(mf);
-	mf = NULL;
-	return rc;
 }
 
 /**
@@ -223,21 +165,11 @@ static int sample(struct ldmsd_sampler *self)
 	}
 
 	base_sample_begin(base);
-	metric_no = metric_offset;
-	fseek(mf, 0, SEEK_SET);
-	do {
-		s = fgets(lbuf, sizeof(lbuf), mf);
-		if (!s)
-			break;
-		rc = sscanf(lbuf, "%s %"PRIu64, metric_name, &v.v_u64);
-		if (rc != 2 && rc != 3) {
-			rc = EINVAL;
-			goto out;
-		}
+	v.v_f = get_ping_latency("localhost");
 
-		ldms_metric_set(set, metric_no, &v);
-		metric_no++;
-	} while (s);
+	metric_no = metric_offset;
+
+	ldms_metric_set(set, metric_no, &v);
  out:
 	base_sample_end(base);
 	return 0;
