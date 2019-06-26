@@ -134,6 +134,12 @@ libmeminfo_la_LIBADD = $(COMMON_LIBADD)
 pkglib_LTLIBRARIES += libmeminfo.la
 endif
 
+if ENABLE_NETSCOPE
+libnetscope_la_SOURCES = netscope.c
+libnetscope_la_LIBADD = $(COMMON_LIBADD)
+pkglib_LTLIBRARIES += libnetscope.la
+endif
+
 
 if ENABLE_MSR_INTERLAGOS
 libmsr_interlagos_la_SOURCES = msr_interlagos.c

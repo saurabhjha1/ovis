@@ -25,20 +25,19 @@ Developer : Saurabh Jha <saurabh.jha.2010@gmail.com>
 
 
 static ldms_set_t set = NULL;
-static FILE *mf = 0;
 static ldmsd_msg_log_f msglog;
 #define SAMP "meminfo"
 static int metric_offset;
 static base_data_t base;
 
-static float get_ping_latency(char* host){
+__inline__ static uint64_t get_ping_latency(char* host){
 
   FILE *fp;
   char path[1035];
   float latency = -2;
   int rc;
   /* Open the command for reading. */
-  fp = popen("/bin/ping -qc3 -w 10 -s $((1024*10)) localhost 2>&1 | awk -F'/' 'END{ print (/^rtt/?  $5:-1) }'", "r");
+  fp = popen("/bin/ping -qc1 -w 10 -s $((1024*10)) master 2>&1 | awk -F'/' 'END{ print (/^rtt/?  $5:-1) }'", "r");
   if (fp == NULL) {
 	return latency;
   }
@@ -46,11 +45,13 @@ static float get_ping_latency(char* host){
   /* Read the output a line at a time - output it. */
   while (fgets(path, sizeof(path)-1, fp) != NULL) {
     rc = sscanf(path, "%f", &latency);
+    if (rc < 0) 
+        return -2;
   }
 
   /* close */
   pclose(fp);
-  return latency;
+  return (uint64_t)(latency*1e06);
 }
 static int create_metric_set(base_data_t base)
 {
@@ -72,19 +73,19 @@ static int create_metric_set(base_data_t base)
 	/*
 	 * Process the file to define all the metrics.
 	 */
-       	rc = ldms_schema_metric_add(schema, "ping-localhost", LDMS_V_F32);
+        rc = ldms_schema_metric_add(schema, "ping-localhost", LDMS_V_U64);
 		if (rc < 0) {
 			return rc;
 		}
+		rc = ldms_schema_metric_add(schema, "ping-remote", LDMS_V_U64);
+		if (rc < 0) { return rc; }
 
 	set = base_set_new(base);
 	if (!set) {
 		rc = errno;
 		return rc;
 	}
-
 	return 0;
-
 }
 
 /**
@@ -152,11 +153,7 @@ static ldms_set_t get_set(struct ldmsd_sampler *self)
 
 static int sample(struct ldmsd_sampler *self)
 {
-	int rc;
 	int metric_no;
-	char *s;
-	char lbuf[256];
-	char metric_name[128];
 	union ldms_value v;
 
 	if (!set) {
@@ -164,22 +161,24 @@ static int sample(struct ldmsd_sampler *self)
 		return EINVAL;
 	}
 
-	base_sample_begin(base);
-	v.v_f = get_ping_latency("localhost");
-
 	metric_no = metric_offset;
+	base_sample_begin(base);
 
+	v.v_u64 =  get_ping_latency("localhost");
 	ldms_metric_set(set, metric_no, &v);
- out:
+	metric_no += 1;
+
+    // set remote
+    v.v_u64 = 1000;
+    ldms_metric_set(set, metric_no, &v);
+    metric_no++;
+out:
 	base_sample_end(base);
 	return 0;
 }
 
 static void term(struct ldmsd_plugin *self)
 {
-	if (mf)
-		fclose(mf);
-	mf = NULL;
 	if (base)
 		base_del(base);
 	if (set)
